@@ -219,15 +219,6 @@ class Cluster:
                 self.catalog['dec'][self.BCG_idx], self.large_catalog) > search_radius]
             candidate_idx = np.array(list(zip(*np.argwhere(candidates)))[1])
 
-            '''input_list = list(zip(self.large_catalog['r'][candidate_idx],
-                self.large_catalog['z'][candidate_idx],
-                self.large_catalog['gr'][candidate_idx],
-                self.large_catalog['rz'][candidate_idx],
-                np.zeros_like(self.large_catalog['r'][candidate_idx],dtype=bool)))
-
-            with Pool() as p:
-                redshifts = p.starmap(self.Predictor.predict_from_values, input_list)'''
-
             redshifts = self.Predictor.predict_from_values(self.large_catalog['r'][candidate_idx], 
                 self.large_catalog['z'][candidate_idx], self.large_catalog['gr'][candidate_idx], 
                 self.large_catalog['rz'][candidate_idx], False)
@@ -235,12 +226,12 @@ class Cluster:
             #gr, rz = list(zip(*redshifts))
             self.large_catalog['gr_redshift'] = np.NaN
             self.large_catalog['rz_redshift'] = np.NaN
-            self.large_catalog['gr_redshift'][candidate_idx] = redshifts[0] #list(zip(*gr))[0]
-            self.large_catalog['rz_redshift'][candidate_idx] = redshifts[1] #list(zip(*rz))[0]
+            self.large_catalog['gr_redshift'][candidate_idx] = redshifts[0] 
+            self.large_catalog['rz_redshift'][candidate_idx] = redshifts[1] 
 
     #---
 
-    def download_surroundings(self, directory='DECALS Cutout Grabber/catalogs.nosync', verbose=True):
+    def download_surroundings(self, directory='DECALS Cutout Grabber/catalogs.nosync', verbose=True, delete=False):
         ra = self.catalog['ra'][self.BCG_idx]
         dec = self.catalog['dec'][self.BCG_idx]
         outname = '/large_'+str(ra)+'_'+str(dec)+'.fits'
@@ -283,6 +274,9 @@ class Cluster:
             })
         self.large_catalog['gr'] = self.large_catalog['g'] - self.large_catalog['r']
         self.large_catalog['rz'] = self.large_catalog['r'] - self.large_catalog['z']
+
+        if delete:
+            os.remove(path+outname)
 
     def plot_distribution(self, type, bins=50, range=[0,1.5]):
         '''

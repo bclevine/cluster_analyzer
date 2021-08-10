@@ -201,17 +201,19 @@ class Predictor:
             return self.gr_prediction, self.rz_prediction
 
         else:
-            if np.isnan([gr, r]).any():
+            self.r_data, self.z_data = r, z
+            self.gr_data, self.rz_data = gr, rz
+            if np.isnan(np.array([gr, r]).astype(float)).any():
                 self.gr_prediction = None, None
-            elif np.isinf([gr, r]).any():
+            elif np.isinf(np.array([gr, r]).astype(float)).any():
                 self.gr_prediction = None, None
             else:
                 self.gr_prediction = self.nearest_redshift(gr, r, 'gr')
 
-            if np.isnan([rz, z]).any():
-                self.gr_prediction = None, None
-            elif np.isinf([rz, z]).any():
-                self.gr_prediction = None, None
+            if np.isnan(np.array([rz, z]).astype(float)).any():
+                self.rz_prediction = None, None
+            elif np.isinf(np.array([rz, z]).astype(float)).any():
+                self.rz_prediction = None, None
             else:  
                 self.rz_prediction = self.nearest_redshift(rz, z, 'rz')
 
