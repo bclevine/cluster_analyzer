@@ -15,7 +15,7 @@ pred.compute_arrays()
 
 #Load catalogs
 filename = 'DECALS Cutout Grabber/catalogs.nosync/{}_{}.fits'
-cutout_list = np.loadtxt('DECALS Cutout Grabber/catalogs.txt')
+cutout_list = np.loadtxt('DECALS Cutout Grabber/nonlenses.txt')
 catalog_list = []
 indicies = []
 for i, j in enumerate(cutout_list[:]):
@@ -66,5 +66,5 @@ print("Elapsed time is  {}".format(end-start))
 
 #Save statistics
 print('Length of statistics:', len(statistics))
-with open('all_stats.npy', 'wb') as f:
+with open('nonlensing_stats.npy', 'wb') as f:
     np.save(f, statistics)
