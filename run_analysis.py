@@ -5,6 +5,8 @@ from redshift_predictor import *
 from cluster import Cluster
 from astropy.io import fits
 import time
+import urllib.request as urlib
+import os
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -15,30 +17,33 @@ pred.compute_arrays()
 
 #Load catalogs
 filename = 'DECALS Cutout Grabber/catalogs.nosync/{}_{}.fits'
-cutout_list = np.loadtxt('DECALS Cutout Grabber/nonlenses.txt')
-catalog_list = []
-indicies = []
-for i, j in enumerate(cutout_list[:]):
-    try:
-        hdul = fits.open(filename.format(np.format_float_positional(j[0]),
-                                   np.format_float_positional(j[1])))
-        catalog_list.append(hdul[1].data)
-        hdul.close()
-        indicies.append(i)
-    except Exception:
-        print('Exception for catalog', i)
-        catalog_list.append(None)
+cutout_list = np.loadtxt('DECALS Cutout Grabber/catalogs.txt')
+url = 'https://www.legacysurvey.org/viewer/ls-dr9/cat.fits?ralo={}&rahi={}&declo={}&dechi={}'
+
+directory = os.getcwd()
+outputs = directory+'/catalogs.nosync'
 
 #Run analysis
 start = time.time() #start time
 statistics = []
-for i in range(len(indicies)):
-    
+for i in range(len(cutout_list)):
     try:
+        #-----
+        stage = 'Download Small Catalog'
+        ra, dec, size = cutout_list[i]
+        ra_min = ra-size; ra_max = ra+size
+        dec_min = dec-size; dec_max = dec+size
+        outname = '/'+str(ra)+'_'+str(dec)+'.fits'
+        
+        urlib.urlretrieve(url.format(ra_min, ra_max, dec_min, dec_max), outputs+outname)
+        print('Catalog at [', ra, dec, '] has been downloaded.')
+
+        #-----
         stage = 'Load'
-        c = cutout_list[indicies[i]]
-        RA = c[0]; DEC = c[1]
-        clus = Cluster(catalog_list[i], RA, DEC, pred)
+        with fits.open(filename.format(np.format_float_positional(j[0]), np.format_float_positional(j[1]))) as hdul:
+            dat = hdul[1].data
+        clus = Cluster(dat, ra, dec, pred)
+
         #-----
         stage = 'Identify'
         clus.identify_BCG(iterate=True)
@@ -56,7 +61,7 @@ for i in range(len(indicies)):
         stage = 'Return Stats'
         output = clus.return_statistics()
         statistics.append(output)
-        #print(output)
+
     except Exception:
         print("Failed to process catalog", i)
         print('Failure stage:', stage)
