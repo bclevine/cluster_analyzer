@@ -21,7 +21,7 @@ cutout_list = np.loadtxt('DECALS Cutout Grabber/catalogs.txt')
 url = 'https://www.legacysurvey.org/viewer/ls-dr9/cat.fits?ralo={}&rahi={}&declo={}&dechi={}'
 
 directory = os.getcwd()
-outputs = directory+'/catalogs.nosync'
+outputs = directory+'/DECALS Cutout Grabber/catalogs.nosync'
 
 #Run analysis
 start = time.time() #start time
