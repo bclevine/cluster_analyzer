@@ -40,7 +40,7 @@ for i in range(len(cutout_list)):
 
         #-----
         stage = 'Load'
-        with fits.open(filename.format(np.format_float_positional(j[0]), np.format_float_positional(j[1]))) as hdul:
+        with fits.open(filename.format(np.format_float_positional(ra), np.format_float_positional(dec))) as hdul:
             dat = hdul[1].data
         clus = Cluster(dat, ra, dec, pred)
 
