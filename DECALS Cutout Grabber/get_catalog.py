@@ -27,12 +27,12 @@ def download_catalog(cutout):
         try:
             urlib.urlretrieve(url.format(args.layer, ra_min, ra_max, dec_min, dec_max),outputs+outname)
         except Exception as e:
-            print('Catalog at [', ra, dec, '] timed out. :(')
+            print('\x1b[31m Catalog at [', ra, dec, '] timed out. :( \x1b[0m')
             return None
 
-        print('Catalog at [', ra, dec, '] has been downloaded.')
+        print('\x1b[32m Catalog at [', ra, dec, '] has been downloaded. \x1b[0m')
     else:
-        print('Catalog at [', ra, dec, '] was already downloaded.')
+        print('\x1b[33m Catalog at [', ra, dec, '] was already downloaded. \x1b[0m')
 
 
 if __name__ == '__main__': 
