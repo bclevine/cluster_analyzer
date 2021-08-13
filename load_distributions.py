@@ -8,7 +8,7 @@ import urllib.request as urlib
 
 from multiprocessing import Pool
 import warnings
-#warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore")
 
 #-------
 
@@ -74,3 +74,7 @@ def calc_distributions():
     with Pool() as p:
         background_distributions = p.map(calc_background, list(range(len(cutout_list))))
     return background_distributions
+
+if __name__ == '__main__': 
+    a = np.array(calc_distributions(), dtype=object)
+    np.save('mapdata', a)
