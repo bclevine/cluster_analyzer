@@ -77,4 +77,5 @@ def calc_distributions():
 
 if __name__ == '__main__': 
     a = np.array(calc_distributions(), dtype=object)
-    np.save('mapdata', a)
+    with open('mapdata.npy', 'wb') as f:
+        np.save(f, a)

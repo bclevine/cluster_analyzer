@@ -68,8 +68,8 @@ class Cluster:
         #Check additional candidates
         cosmo = cosmology.LambdaCDM(H0=70, Om0=0.3, Ode0=0.7)
 
-        zred = np.mean(self.Predictor.predict_from_values(self.catalog['r'][BCG_idx], self.catalog['z'][BCG_idx],
-            self.catalog['gr'][BCG_idx], self.catalog['rz'][BCG_idx], False), axis=0)[0]
+        zred = np.nanmean(np.array(self.Predictor.predict_from_values(self.catalog['r'][BCG_idx], self.catalog['z'][BCG_idx],
+            self.catalog['gr'][BCG_idx], self.catalog['rz'][BCG_idx], False), dtype=float), axis=0)[0]
 
         search_radius = radius * cosmo.arcsec_per_kpc_comoving(zred).value / 3600
 
@@ -83,6 +83,8 @@ class Cluster:
 
             for i in sorted(list(zip(self.catalog['r'][candidate_idx], candidate_idx))):
                 #Check whether colors are within color tolerances
+                print(i)
+                print(iterations)
                 if np.abs(self.catalog['gr'][i[1]] - self.catalog['gr'][BCG_idx]) < ctol:
                     if np.abs(self.catalog['rz'][i[1]] - self.catalog['rz'][BCG_idx]) < ctol:
                         BCG_idx = i[1]
@@ -97,11 +99,12 @@ class Cluster:
                             found = True
 
                         break
+            found = True
         
         self.BCG_idx = BCG_idx
-        self.z_BCG = np.mean(self.Predictor.predict_from_values(self.catalog['r'][self.BCG_idx], 
+        self.z_BCG = np.nanmean(np.array(self.Predictor.predict_from_values(self.catalog['r'][self.BCG_idx], 
             self.catalog['z'][self.BCG_idx], self.catalog['gr'][self.BCG_idx], 
-            self.catalog['rz'][self.BCG_idx], False), axis=0)[0]
+            self.catalog['rz'][self.BCG_idx], False), dtype=float), axis=0)[0]
         return self.BCG_idx
 
     def plot_BCG(self, catalog_width=0.03, img=None, pxscale=0.262, imgwidth=250, xscale=1, yscale=1):
