@@ -298,6 +298,17 @@ class Cluster:
         plt.vlines(self.z_BCG, 0, np.max(vals), color='orange', ls=':')
         plt.xlabel('Redshift'); plt.ylabel('Proportion of Objects')
 
+    def calc_background(self, bins=50, range=[0,1.5]):
+        self.catalog['redshift'] = pd.Series(np.mean([self.catalog['gr_redshift'].astype('float64'),
+            self.catalog['rz_redshift'].astype('float64')], axis=0))
+        cluster_dist = np.histogram(self.catalog['redshift'].dropna(), bins=bins, density=True, range=range)
+        self.background_dist = cluster_dist
+        if cluster_dist==None:
+            return cluster_dist
+        else:
+            return cluster_dist[0]
+
+
     def calc_richness(self, bins=50, range=[0,1.5], radius=None):
         self.catalog['redshift'] = pd.Series(np.mean([self.catalog['gr_redshift'].astype('float64'),
             self.catalog['rz_redshift'].astype('float64')], axis=0))

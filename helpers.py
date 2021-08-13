@@ -1,9 +1,11 @@
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib import cm, colors
 from astropy import cosmology
+from astropy.io import fits
+import os
+import urllib.request as urlib
 
 #------------------
 
@@ -274,3 +276,9 @@ def plot_BCG(RA, DEC, data, BCG_idx):
     plt.xlim(np.max(data['ra']),np.min(data['ra']))
     plt.ylim(np.min(data['dec']),np.max(data['dec']))
     plt.show()
+
+#------------------
+
+def bin_centers(edges, bins):
+    edges = np.linspace(edges[0], edges[1], num=bins+1)
+    return 0.5*edges[1:] + 0.5*edges[:-1]
