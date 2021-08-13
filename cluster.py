@@ -83,8 +83,6 @@ class Cluster:
 
             for i in sorted(list(zip(self.catalog['r'][candidate_idx], candidate_idx))):
                 #Check whether colors are within color tolerances
-                print(i)
-                print(iterations)
                 if np.abs(self.catalog['gr'][i[1]] - self.catalog['gr'][BCG_idx]) < ctol:
                     if np.abs(self.catalog['rz'][i[1]] - self.catalog['rz'][BCG_idx]) < ctol:
                         BCG_idx = i[1]
