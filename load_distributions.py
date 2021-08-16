@@ -62,7 +62,7 @@ def calc_background(i):
         clus.identify_BCG(iterate=True)
         
         stage = 'Redshifts'
-        clus.calc_redshifts(radius=500)
+        clus.calc_redshifts(radius=10000)
         
         stage = 'Calc Background'
         return clus.calc_background()
