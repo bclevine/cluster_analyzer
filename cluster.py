@@ -79,7 +79,11 @@ class Cluster:
         while found==False:
             candidates = [catalog_distance(self.catalog['ra'][BCG_idx], 
                 self.catalog['dec'][BCG_idx], self.catalog) < search_radius]
-            candidate_idx = np.array(list(zip(*np.argwhere(candidates)))[1])
+            if not np.array(candidates).any():
+                found = True
+                break
+            else:
+                candidate_idx = np.array(list(zip(*np.argwhere(candidates)))[1])
 
             for i in sorted(list(zip(self.catalog['r'][candidate_idx], candidate_idx))):
                 #Check whether colors are within color tolerances
@@ -192,6 +196,8 @@ class Cluster:
 
             candidates = [catalog_distance(self.catalog['ra'][self.BCG_idx], 
                 self.catalog['dec'][self.BCG_idx], self.catalog) < search_radius]
+            if not np.array(candidates).any():
+                return None
             candidate_idx = np.array(list(zip(*np.argwhere(candidates)))[1])
 
             redshifts = self.Predictor.predict_from_values(self.catalog['r'][candidate_idx], 
@@ -302,7 +308,7 @@ class Cluster:
     def calc_background(self, bins=50, range=[0,1.5]):
         self.catalog['redshift'] = pd.Series(np.mean([self.catalog['gr_redshift'].astype('float64'),
             self.catalog['rz_redshift'].astype('float64')], axis=0))
-        cluster_dist = np.histogram(self.catalog['redshift'].dropna(), bins=bins, density=True, range=range)
+        cluster_dist = np.histogram(self.catalog['redshift'].dropna(), bins=bins, density=False, range=range)
         self.background_dist = cluster_dist
         if cluster_dist==None:
             return cluster_dist
