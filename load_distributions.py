@@ -53,7 +53,7 @@ def calc_background(i):
         RA = c[0]; DEC = c[1]
     
         stage = 'Download'
-        download_cat(RA, DEC)
+        download_cat(RA, DEC, c[2])
         
         stage = 'Load'
         clus = Cluster(load_cat(RA, DEC, i), RA, DEC, pred)
