@@ -14,6 +14,8 @@ class Predictor:
         
         '''
         self.zvals = process_zvals(zfile)
+        self.r_data = None
+        self.z_data = None
 
     def update_linelist(self, coltype, mag_range):
         self.linelist = compute_slope(self.zvals, coltype, mag_range)
@@ -115,9 +117,9 @@ class Predictor:
             indicies = indicies.astype(int)
             
             if coltype == 'gr':
-                red =  self.gr_red
+                red = self.gr_red
             elif coltype == 'rz':
-                red =  self.rz_red
+                red = self.rz_red
 
             val_list = np.broadcast_to(red, (len(indicies),len(red)))
 
@@ -176,7 +178,7 @@ class Predictor:
     def plot_lines(self):
         plot_plain(self.gr_slopes, self.rz_slopes, self.gr_red, self.rz_red)
 
-    def predict_from_values(self, r, z, gr, rz, verbose=True):
+    def predict_from_values(self, r, z, gr, rz, verbose=True, mag_lim=2):
         if isinstance(r, (collections.Sequence, np.ndarray, pd.Series)):
             nan_mask = ~np.isnan([gr, r]).any(axis=0)
             inf_mask = ~np.isinf([gr, r]).any(axis=0)
@@ -197,6 +199,12 @@ class Predictor:
             reds, idxs = self.nearest_redshift(rz[total_mask], z[total_mask], 'rz')
             self.rz_prediction[total_mask] = reds
             self.rz_idxs[total_mask] = idxs
+
+            #mag cut
+            self.rz_prediction[~(z.reset_index(drop=True) < (self.zvals['z_mag'][np.nan_to_num(self.rz_idxs+np.where(self.zvals['z_mag'] != -10)[0][0], nan=0)]+
+                mag_lim).reset_index(drop=True))] = np.nan
+            self.gr_prediction[~(r.reset_index(drop=True) < (self.zvals['r_mag'][np.nan_to_num(self.gr_idxs, nan=len(self.zvals)-1)]+
+                mag_lim).reset_index(drop=True))] = np.nan
 
             return self.gr_prediction, self.rz_prediction
 

@@ -6,9 +6,11 @@ from astropy import cosmology
 from astropy.io import fits
 import os
 import urllib.request as urlib
+import collections
+import logging
 
-#------------------
 
+#FUNCTIONS FOR REDSHIFT PREDICTOR
 def process_zvals(filename):
     '''Function to turn a txt table of zvals into a pandas frame
     Inputs: 
@@ -25,8 +27,6 @@ def process_zvals(filename):
     zvals = zvals.reset_index(drop=True)
 
     return zvals
-
-#------------------
 
 def compute_slope(zvals, coltype, mrange=.5):
     '''Function to compute a redshift linelist of red sequence galaxies
@@ -64,8 +64,6 @@ def compute_slope(zvals, coltype, mrange=.5):
     
     return linelist
 
-#------------------
-
 def values_from_index_list(value_list, indicies, i=0):
     '''
     value_list such as predictor.gr_perp or predictor.gr_mags
@@ -87,12 +85,8 @@ def find_intersection(x1,y1,x2,y2,x3,y3,x4,y4):
 def get_alt_point(x, y, m):
     return (x+1, m+y)
 
-#------------------
-
 def flux_to_mag(flux):
     return 22.5 - (2.5*np.log10(flux))
-
-#------------------
 
 def single_slope(zval, mrange, coltype):
     if coltype=='gr':
@@ -197,11 +191,11 @@ def plot_pred(gr_slopes, rz_slopes, gr_red, rz_red, gr_prediction, rz_prediction
 
 #------------------
 
+#FUNCTIONS FOR CLUSTER FINDER
+
 def catalog_distance(RA, DEC, data):
     return np.linalg.norm(np.subtract([RA*np.ones_like(data['ra']), DEC*np.ones_like(data['dec'])],
-                           [data['ra'], data['dec']]),axis=0)
-
-#------------------
+                           [data['ra'], data['dec']]) * [np.cos(np.radians(data['dec'])), np.ones_like(data['dec'])], axis=0)
 
 def compute_gr(data, idx):
     g = flux_to_mag(data['flux_g'][idx])
@@ -212,8 +206,6 @@ def compute_rz(data, idx):
     r = flux_to_mag(data['flux_r'][idx])
     z = flux_to_mag(data['flux_z'][idx])
     return r-z
-
-#------------------
 
 def identify_BCG(RA, DEC, data, Predictor, radius=250, ctol=0.2):
     '''
@@ -264,8 +256,6 @@ def identify_BCG(RA, DEC, data, Predictor, radius=250, ctol=0.2):
 
     return BCG_idx
 
-#------------------
-
 def plot_BCG(RA, DEC, data, BCG_idx):
     cmp = plt.cm.get_cmap('RdYlBu')
     plt.figure(figsize=(8,6))
@@ -282,3 +272,146 @@ def plot_BCG(RA, DEC, data, BCG_idx):
 def bin_centers(edges, bins):
     edges = np.linspace(edges[0], edges[1], num=bins+1)
     return 0.5*edges[1:] + 0.5*edges[:-1]
+
+#------------------
+
+def calc_area(radius):
+    '''
+    Calculates true angular size of a circular patch of the sky
+    '''
+    a = np.pi * (radius**2)
+    
+    return a
+
+def combine_redshifts(arg1, arg2=None):
+    #By default this function takes a single Pandas dataframe with columns 'gr_redshift' and 'rz redshift'.
+    #If you give it two arguments in form [gr_redshift], [rz_redshift], it will just combine those.
+    #If you give it two scalar arguments in form (gr, rz), it will return a scalar.
+
+    if arg2 is None: #if only a dataframe is given...
+        redshift = pd.Series(np.mean([arg1['gr_redshift'].astype('float64'), arg1['rz_redshift'].astype('float64')], axis=0))
+        #redshift = arg1['rz_redshift'].astype('float64')
+        redshift[arg1['gr_redshift'] < .35] = arg1['gr_redshift'][arg1['gr_redshift'] < .35]
+        redshift[arg1['rz_redshift'] > .4] = arg1['rz_redshift'][arg1['rz_redshift'] > .4]
+        redshift[arg1['gr_redshift'] > .6] = arg1['rz_redshift'][arg1['gr_redshift'] > .6]
+
+    else: 
+        if isinstance(arg1, (collections.Sequence, np.ndarray, pd.Series)): #two redshift lists are given...
+            redshift = pd.Series(np.mean([arg1.astype('float64'), arg2.astype('float64')], axis=0))
+            #redshift = arg2
+            redshift[arg1 < .35] = arg1[arg1 < .35]
+            redshift[arg2 > .4] = arg2[arg2 > .4]
+            redshift[arg1 > .6] = arg2[arg1 > .6]
+        else:
+            if arg1 > .6:
+                return arg2
+            elif arg2 > .4:
+                return arg2
+            elif arg1 < .35:
+                return arg1
+
+            else:
+                return np.nanmean([arg1, arg2])
+
+    return redshift
+
+#------------------
+
+def calc_magnitude_error(flux, flux_p, flux_m):
+    return np.abs(np.minimum((flux_to_mag(flux_p) - flux_to_mag(flux)), (flux_to_mag(flux) - flux_to_mag(flux_m))))
+
+def add_quadrature(x1, x2):
+    return np.sqrt((x1**2) + (x2**2))
+
+def predict_magnitudes_max_min(clus, candidate_idx=None):
+    if candidate_idx is None:
+        redshifts_max = clus.Predictor.predict_from_values(
+            (clus.catalog['r'] - clus.catalog['r_e']), 
+            (clus.catalog['z'] - clus.catalog['z_e']), 
+            (clus.catalog['g'] - clus.catalog['r'] - add_quadrature(clus.catalog['g_e'], clus.catalog['r_e'])), 
+            (clus.catalog['r'] - clus.catalog['z'] - add_quadrature(clus.catalog['r_e'], clus.catalog['z_e'])), 
+            False)
+        
+        redshifts_min = clus.Predictor.predict_from_values(
+            (clus.catalog['r'] + clus.catalog['r_e']), 
+            (clus.catalog['z'] + clus.catalog['z_e']), 
+            (clus.catalog['g'] + clus.catalog['r'] + add_quadrature(clus.catalog['g_e'], clus.catalog['r_e'])), 
+            (clus.catalog['r'] + clus.catalog['z'] + add_quadrature(clus.catalog['r_e'], clus.catalog['z_e'])), 
+            False)
+
+    else:
+        redshifts_max = clus.Predictor.predict_from_values(
+            (clus.catalog['r'] - clus.catalog['r_e'])[candidate_idx], 
+            (clus.catalog['z'] - clus.catalog['z_e'])[candidate_idx], 
+            (clus.catalog['g'] - clus.catalog['r'] - add_quadrature(clus.catalog['g_e'], clus.catalog['r_e']))[candidate_idx], 
+            (clus.catalog['r'] - clus.catalog['z'] - add_quadrature(clus.catalog['r_e'], clus.catalog['z_e']))[candidate_idx], 
+            False)
+        
+        redshifts_min = clus.Predictor.predict_from_values(
+            (clus.catalog['r'] + clus.catalog['r_e'])[candidate_idx], 
+            (clus.catalog['z'] + clus.catalog['z_e'])[candidate_idx], 
+            (clus.catalog['g'] + clus.catalog['r'] + add_quadrature(clus.catalog['g_e'], clus.catalog['r_e']))[candidate_idx], 
+            (clus.catalog['r'] + clus.catalog['z'] + add_quadrature(clus.catalog['r_e'], clus.catalog['z_e']))[candidate_idx], 
+            False)
+    
+    return redshifts_max, redshifts_min
+
+#------------
+
+def physical_area(dec, size, ra_min, ra_max, dec_min, dec_max):
+    a = ((size*np.abs(np.cos(np.radians(dec_max))) + size*np.abs(np.cos(np.radians(dec_min)))) / 2) * size 
+    return a
+
+outputs = os.getcwd()
+url = 'https://www.legacysurvey.org/viewer/ls-dr9/cat.fits?ralo={}&rahi={}&declo={}&dechi={}'
+
+def download_cat(ra, dec, size=0.03, skip_masking=False, verbose=True):
+    ra_min = ra-(size/2)
+    ra_max = ra+(size/2)
+    dec_min = dec-(size/2)
+    dec_max = dec+(size/2)
+
+    if not skip_masking:
+        ca_result = physical_area(dec, size, ra_min, ra_max, dec_min, dec_max)
+
+        if not ca_result:
+            raise ValueError('Skipped due to masking.')
+
+    outname = '/'+str(ra)+'_'+str(dec)+'.fits'
+    if not os.path.isfile(outputs+outname):
+        try:
+            urlib.urlretrieve(url.format(
+                ra_min, ra_max, dec_min, dec_max), outputs+outname)
+        except Exception as e:
+            logging.warning('Catalog at [%s , %s] did not download.', ra, dec)
+            logging.warning('%s', e)
+            if verbose:
+                print('\x1b[31m Catalog at [', ra, dec, '] timed out. :( \x1b[0m')
+                print(e)
+            return None
+        logging.info('Catalog at [%s , %s] has been downloaded.', ra, dec)
+        if verbose:
+            print('\x1b[32m Catalog at [', ra, dec,'] has been downloaded. \x1b[0m')
+    else:
+        logging.info('Catalog at [%s , %s] was already downloaded.', ra, dec)
+        if verbose:
+            print('\x1b[33m Catalog at [', ra, dec,'] was already downloaded. \x1b[0m')
+
+    if not skip_masking:
+        return ca_result
+    return None
+
+types = ['DEV', 'EXP', 'REX', 'SER']
+def load_cat(ra, dec, i, verbose=True, remove=True):
+    filename = str(ra)+'_'+str(dec)+'.fits'
+    try:
+        with fits.open(filename) as hdul:
+            dat = hdul[1].data
+        if remove:
+            os.remove(filename)
+        return dat[np.isin(dat['type'],types)]
+    except Exception as e:
+        logging.warning('%s', e)
+        if verbose:
+            print('Exception for catalog', i)
+            print(e)
