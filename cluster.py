@@ -612,6 +612,8 @@ class Cluster:
                 #COMPUTE STANDARD DEVIATIONS
                 sd_up = maxvals - medians
                 sd_down = medians - minvals
+                sd_up[sd_up == 0] = self.uncertainty_floor
+                sd_down[sd_down == 0] = self.uncertainty_floor
 
                 maxmask = (medians + (sigma*sd_up)) > comparison_redshift
                 minmask = (medians - (sigma*sd_down)) < comparison_redshift
