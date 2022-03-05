@@ -402,14 +402,17 @@ def download_cat(ra, dec, size=0.03, skip_masking=False, verbose=True):
     return None
 
 types = ['DEV', 'EXP', 'REX', 'SER']
-def load_cat(ra, dec, i, verbose=True, remove=True):
+def load_cat(ra, dec, i, bitmasks=True, verbose=True, remove=True):
     filename = str(ra)+'_'+str(dec)+'.fits'
     try:
         with fits.open(filename) as hdul:
             dat = hdul[1].data
         if remove:
             os.remove(filename)
-        return dat[np.isin(dat['type'],types)]
+        if bitmasks:
+            return dat[np.isin(dat['type'],types)]
+        else:
+            return dat
     except Exception as e:
         logging.warning('%s', e)
         if verbose:
