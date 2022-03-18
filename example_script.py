@@ -60,7 +60,7 @@ if not args.verbose:
     from tqdm.contrib.concurrent import process_map
     
 #INITIALIZE PREDICTOR AND COSMOLOGY
-pred = Predictor('RSmodel_Nov2021.txt')
+pred = Predictor('RSmodel_Mar2022.txt')
 pred.compute_arrays()
 cosmo = cosmology.WMAP9    
 
