@@ -5,14 +5,14 @@ savefile = 'example_rich.npy' # <-- The name of the final output
 input_catalog = 'COOLLAMPS_decals_springlowz_searchpositions.txt' # <-- The name of the input catalog (list of [ra, dec] coordinates)
 
 deg_radius = .05 # <-- Cutout radius in degrees
-rsmodel = 'RSmodel_Mar2022.txt' # <-- The name of the Red-Sequence/Redshift model used for the photo-z algorithm
+rsmodel = 'RSmodel_Mar2022_adj.txt' # <-- The name of the Red-Sequence/Redshift model used for the photo-z algorithm
 random_files = '../../../data/blevine/randoms/rand_sorted_*.fits' # <-- Location of DECaLS random position catalogs
 
 output_log = True # <-- Should we keep an output log (keeps track of outputs as the script runs)?
 output_log_name = 'example_output.log' # <-- Name for the output log, if we're using one
 #----------------------------------
 #END OF CONFIG
-#REMEMBER TO ADJUST RETURNED VALUES ON LINE 170 AS WELL!
+#REMEMBER TO ADJUST THE RETURNED VALUES BELOW AS WELL!
 
 #IMPORTS
 #Logging
