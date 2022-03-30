@@ -10,6 +10,41 @@ import collections
 import logging
 
 
+#LOGGING SETUP
+def setup_logger(name, log_file, formatter, level=logging.INFO):
+    '''Sets up a logger
+    Inputs:
+    - name of logger (string)
+    - name of log file (strong)
+    - formatter (logging.formatter object)
+    - logging level
+    
+    Outputs:
+    - logger object
+    '''
+
+    handler = logging.FileHandler(log_file, mode='w')        
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
+def stringify(arr):
+    '''Turns array of various values into a string
+    Inputs:
+    - arr (array)
+    
+    Outputs:
+    - string
+    '''
+    output = ''
+    for i in arr:
+        output = output + str(i) + ' '
+    return output
+
 #FUNCTIONS FOR REDSHIFT PREDICTOR
 def process_zvals(filename):
     '''Function to turn a txt table of zvals into a pandas frame

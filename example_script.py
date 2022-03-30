@@ -3,14 +3,26 @@
 logfile = 'example_richnesses.log' # <-- The name of the log file
 savefile = 'example_rich.npy' # <-- The name of the final output 
 input_catalog = 'COOLLAMPS_decals_springlowz_searchpositions.txt' # <-- The name of the input catalog (list of [ra, dec] coordinates)
+
 deg_radius = .05 # <-- Cutout radius in degrees
+rsmodel = 'RSmodel_Mar2022.txt' # <-- The name of the Red-Sequence/Redshift model used for the photo-z algorithm
+random_files = '../../../data/blevine/randoms/rand_sorted_*.fits' # <-- Location of DECaLS random position catalogs
+
+output_log = True # <-- Should we keep an output log (keeps track of outputs as the script runs)?
+output_log_name = 'example_output.log' # <-- Name for the output log, if we're using one
 #----------------------------------
 #END OF CONFIG
+#REMEMBER TO ADJUST RETURNED VALUES ON LINE 170 AS WELL!
 
 #IMPORTS
 #Logging
 import logging
 logging.basicConfig(filename=logfile, filemode='w', level=logging.INFO)
+
+if output_log:
+    from helpers import setup_logger, stringify
+    formatter = logging.Formatter('%(message)s')
+    output_logger = setup_logger('output_logger', output_log_name, formatter)
     
 #Computation & Algorithms
 import numpy as np
@@ -60,7 +72,7 @@ if not args.verbose:
     from tqdm.contrib.concurrent import process_map
     
 #INITIALIZE PREDICTOR AND COSMOLOGY
-pred = Predictor('RSmodel_Mar2022.txt')
+pred = Predictor(rsmodel)
 pred.compute_arrays()
 cosmo = cosmology.WMAP9    
 
@@ -79,7 +91,7 @@ if MASKING_CORRECTION:
 
     #IMPORT RANDOMS
     randoms = []
-    for i in iglob('../../../data/blevine/randoms/rand_sorted_*.fits'):
+    for i in iglob(random_files):
         randoms.append(fits.open(i)[1].data)
 
     #COUNT RANDOMS FUNCTION
@@ -166,11 +178,14 @@ def calc_richnesses(j):
         # - mask_result (the mask correction fraction)
         #You can use anything else from the Cluster object. Contact me if there's something else you need returned.
         
-        if MASKING_CORRECTION:
-            return [clus.richness, clus.z_BCG, clus.mean_z, i, mask_result,
-                    clus.catalog['ra'][clus.BCG_idx], clus.catalog['dec'][clus.BCG_idx], clus.catalog['r'][clus.BCG_idx], clus.catalog['z'][clus.BCG_idx], clus.initial_z_BCG]
-        return [clus.richness, clus.z_BCG, clus.mean_z, i, 
-                clus.catalog['ra'][clus.BCG_idx], clus.catalog['dec'][clus.BCG_idx], clus.catalog['r'][clus.BCG_idx], clus.catalog['z'][clus.BCG_idx], clus.initial_z_BCG]
+        RETURN_VALUES = [clus.richness, clus.z_BCG, clus.mean_z, i, mask_result,
+                    clus.catalog['ra'][clus.BCG_idx], clus.catalog['dec'][clus.BCG_idx], 
+                    clus.catalog['r'][clus.BCG_idx], clus.catalog['z'][clus.BCG_idx], clus.initial_z_BCG]
+        
+        if output_log:
+            output_logger.info(stringify(RETURN_VALUES))
+        return RETURN_VALUES
+
         
     except Exception as e:
         logging.warning('Failed to process catalog %s', i)
