@@ -43,5 +43,16 @@ The following flags are available:
 For example, the following command will use 10 threads and download the first 60 coordinates in the textfile.
 
 ```
-python3 download_catalogs.py -n 10 -l 60
+python3 example_script.py -n 10 -l 60
 ```
+
+The runs may sometimes last a long time. If you're running on a remote server and worried about losing connection, you can do:
+
+```
+nohup python3 example_script.py -n 10 -l 60 >> term_output.log &
+```
+
+This will redirect all terminal outputs to `term_output.log` and run the script in the background, so even if you disconnect, it will still continue working.
+
+## Using the Results
+The script will output a .npy file which you can open using [this Jupyter notebook](Example Analyzer.ipynb). It will also have a plaintext output in the `output.log` file, if you use that option.
