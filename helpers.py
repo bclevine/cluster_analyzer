@@ -8,6 +8,8 @@ import os
 import urllib.request as urlib
 import collections
 import logging
+from dl import queryClient as qc
+from dl.helpers.utils import convert
 
 
 #LOGGING SETUP
@@ -353,7 +355,7 @@ def combine_redshifts(arg1, arg2=None):
 #------------------
 
 def calc_magnitude_error(flux, flux_p, flux_m):
-    return np.abs(np.minimum((flux_to_mag(flux_p) - flux_to_mag(flux)), (flux_to_mag(flux) - flux_to_mag(flux_m))))
+    return np.abs(np.maximum((flux_to_mag(flux_p) - flux_to_mag(flux)), (flux_to_mag(flux) - flux_to_mag(flux_m))))
 
 def add_quadrature(x1, x2):
     return np.sqrt((x1**2) + (x2**2))
@@ -399,6 +401,7 @@ def physical_area(dec, size, ra_min, ra_max, dec_min, dec_max):
 
 outputs = os.getcwd()
 url = 'https://www.legacysurvey.org/viewer/ls-dr9/cat.fits?ralo={}&rahi={}&declo={}&dechi={}'
+#url = 'https://www.legacysurvey.org/viewer/dr8/cat.fits?ralo={}&rahi={}&declo={}&dechi={}'
 
 def download_cat(ra, dec, size=0.03, skip_masking=False, verbose=True):
     ra_min = ra-(size/2)
@@ -453,3 +456,41 @@ def load_cat(ra, dec, i, bitmasks=True, verbose=True, remove=True):
         if verbose:
             print('Exception for catalog', i)
             print(e)
+            
+query = '''SELECT {} FROM {}.tractor WHERE ra>{} AND ra<{} AND dec>{} AND dec<{} AND type IN ('DEV', 'EXP', 'REX', 'SER')'''
+#query = '''SELECT {} FROM ls_dr8.tractor WHERE ra>{} AND ra<{} AND dec>{} AND dec<{} AND type IN ('DEV', 'EXP', 'REX', 'SER')'''
+default_cols = '''ra, dec, flux_g, flux_r, flux_z, flux_ivar_g, flux_ivar_r, flux_ivar_z, mw_transmission_g, mw_transmission_r, mw_transmission_z, maskbits, ls_id, sersic, shape_r, shape_e1, shape_e2'''
+
+def sql_cat(ra, dec, size=0.03, columns=default_cols, catalog='ls_dr9', verbose=False):
+    """Load data directly into a pandas dataframe from the SQL database.
+
+    Args:
+        ra (float): Center coordinate of cutout
+        dec (float): Center coordinate of cutout
+        size (float, optional): Diameter (width) of the cutout. Defaults to 0.03.
+        verbose (bool, optional): Verbose? Defaults to False.
+        
+    Returns:
+        Pandas DataFrame with catalog info
+    """    
+    
+    #Explicitly calculate the bounds of the cutout.
+    ra_min = ra-(size/2)
+    ra_max = ra+(size/2)
+    dec_min = dec-(size/2)
+    dec_max = dec+(size/2)
+    
+    #Try to download the data.
+    try:
+        response = qc.query(adql = query.format(columns, catalog, ra_min, ra_max, dec_min, dec_max), fmt='csv')
+        df = convert(response)
+        logging.info('Catalog at [%s , %s] has been direct loaded from sql.', ra, dec)
+        if verbose:
+            print('\x1b[32m Catalog at [', ra, dec,'] has been direct loaded from sql. \x1b[0m')
+        return df
+    except Exception as e:
+            logging.warning('Catalog at [%s , %s] failed to direct load from sql. :(', ra, dec)
+            logging.warning('%s', e)
+            if verbose:
+                print('\x1b[31m Catalog at [', ra, dec, '] failed to direct load from sql. :( \x1b[0m')
+                print(e)

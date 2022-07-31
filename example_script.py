@@ -5,7 +5,7 @@ savefile = 'example_rich.npy' # <-- The name of the final output
 input_catalog = 'COOLLAMPS_decals_springlowz_searchpositions.txt' # <-- The name of the input catalog (list of [ra, dec] coordinates)
 
 deg_radius = .05 # <-- Cutout radius in degrees
-rsmodel = 'RSmodel_Mar2022_adj.txt' # <-- The name of the Red-Sequence/Redshift model used for the photo-z algorithm
+rsmodel = 'RSmodel_Mar2022_interp.txt' # <-- The name of the Red-Sequence/Redshift model used for the photo-z algorithm
 random_files = '../../../data/blevine/randoms/rand_sorted_*.fits' # <-- Location of DECaLS random position catalogs
 
 output_log = True # <-- Should we keep an output log (keeps track of outputs as the script runs)?
@@ -142,10 +142,16 @@ def calc_richnesses(j):
         DEC = cat['dec'][i]
 
         stage = 'Download'
-        download_cat(RA, DEC, size=deg_radius*2, skip_masking=True, verbose=args.verbose) #this is the total size not the radius
-
+        
+        
+        #Uncomment the following if you don't want to use the SQL option for some reason:
+        #download_cat(RA, DEC, size=deg_radius*2, skip_masking=True, verbose=args.verbose) #this is the total size not the radius
+        #stage = 'Load'
+        #clus = Cluster(load_cat(RA, DEC, i, verbose=args.verbose), RA, DEC, pred)
+        
         stage = 'Load'
-        clus = Cluster(load_cat(RA, DEC, i, verbose=args.verbose), RA, DEC, pred)
+        clus = Cluster(sql_cat(RA, DEC, size=deg_radius*2), RA, DEC, pred)
+        
         # -----
         stage = 'Identify BCG'
         clus.identify_BCG(use_given_coords=False)
@@ -154,7 +160,8 @@ def calc_richnesses(j):
         clus.calc_redshifts(full_cat=True)
 
         stage = 'Calc Richness'
-        clus.calc_richness(comparison_redshift='z_BCG', comparison_tolerance=.1, use_uncertainty=True, sigma=args.sigma)
+        members_lsid = clus.calc_richness(comparison_redshift=None, comparison_tolerance=.1, use_uncertainty=True, 
+                                          sigma=args.sigma, return_members=True)
 
         if MASKING_CORRECTION:
             stage = 'Calculate Masking'
@@ -180,7 +187,7 @@ def calc_richnesses(j):
         
         RETURN_VALUES = [clus.richness, clus.z_BCG, clus.mean_z, i, mask_result,
                     clus.catalog['ra'][clus.BCG_idx], clus.catalog['dec'][clus.BCG_idx], 
-                    clus.catalog['r'][clus.BCG_idx], clus.catalog['z'][clus.BCG_idx], clus.initial_z_BCG]
+                    clus.catalog['r'][clus.BCG_idx], clus.catalog['z'][clus.BCG_idx], clus.initial_z_BCG, members_lsid]
         
         if output_log:
             output_logger.info(stringify(RETURN_VALUES))

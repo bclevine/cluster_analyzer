@@ -35,28 +35,62 @@ class Cluster:
         gvar = (1/np.sqrt(data['flux_ivar_g']))
         rvar = (1/np.sqrt(data['flux_ivar_r']))
         zvar = (1/np.sqrt(data['flux_ivar_z']))
+        
+        #IF DATAFRAME DATA (FROM SQL)...
+        if isinstance(data, pd.DataFrame):
+            fluxg = data['flux_g']/data['mw_transmission_g']
+            fluxgmax = (data['flux_g']+gvar)/data['mw_transmission_g']
+            fluxgmin = (data['flux_g']-gvar)/data['mw_transmission_g']
+            fluxr = data['flux_r']/data['mw_transmission_r']
+            fluxrmax = (data['flux_r']+rvar)/data['mw_transmission_r']
+            fluxrmin = (data['flux_r']-rvar)/data['mw_transmission_r']
+            fluxz = data['flux_z']/data['mw_transmission_z']
+            fluxzmax = (data['flux_z']+zvar)/data['mw_transmission_z']
+            fluxzmin = (data['flux_z']-zvar)/data['mw_transmission_z']
 
-        fluxg = data['flux_g']/data['mw_transmission_g'].byteswap().newbyteorder()
-        fluxgmax = (data['flux_g']+gvar)/data['mw_transmission_g'].byteswap().newbyteorder()
-        fluxgmin = (data['flux_g']-gvar)/data['mw_transmission_g'].byteswap().newbyteorder()
-        fluxr = data['flux_r']/data['mw_transmission_r'].byteswap().newbyteorder()
-        fluxrmax = (data['flux_r']+rvar)/data['mw_transmission_r'].byteswap().newbyteorder()
-        fluxrmin = (data['flux_r']-rvar)/data['mw_transmission_r'].byteswap().newbyteorder()
-        fluxz = data['flux_z']/data['mw_transmission_z'].byteswap().newbyteorder()
-        fluxzmax = (data['flux_z']+zvar)/data['mw_transmission_z'].byteswap().newbyteorder()
-        fluxzmin = (data['flux_z']-zvar)/data['mw_transmission_z'].byteswap().newbyteorder()
+            #CREATE DATAFRAME
+            self.catalog = pd.DataFrame({'ra':data['ra'], 
+                'dec':data['dec'],
+                'g':flux_to_mag(fluxg),
+                'r':flux_to_mag(fluxr),
+                'z':flux_to_mag(fluxz),
 
-        #CREATE DATAFRAME
-        self.catalog = pd.DataFrame({'ra':data['ra'].byteswap().newbyteorder(), 
-            'dec':data['dec'].byteswap().newbyteorder(),
-            'g':flux_to_mag(fluxg),
-            'r':flux_to_mag(fluxr),
-            'z':flux_to_mag(fluxz),
+                'g_e':add_quadrature(calc_magnitude_error(fluxg, fluxgmax, fluxgmin), uncertainty_floor),
+                'r_e':add_quadrature(calc_magnitude_error(fluxr, fluxrmax, fluxrmin), uncertainty_floor),
+                'z_e':add_quadrature(calc_magnitude_error(fluxz, fluxzmax, fluxzmin), uncertainty_floor),
+                
+                'ls_id':data['ls_id'],
+                
+                'mw_transmission_r':data['mw_transmission_r'],
+                'shape_r':data['shape_r'],
+                'shape_e1':data['shape_e1'],
+                'shape_e2':data['shape_e2'],
+                'sersic':data['sersic'],
+                })
+            
+        #OTHERWISE (FROM FITS)...
+        else:
+            fluxg = data['flux_g']/data['mw_transmission_g'].byteswap().newbyteorder()
+            fluxgmax = (data['flux_g']+gvar)/data['mw_transmission_g'].byteswap().newbyteorder()
+            fluxgmin = (data['flux_g']-gvar)/data['mw_transmission_g'].byteswap().newbyteorder()
+            fluxr = data['flux_r']/data['mw_transmission_r'].byteswap().newbyteorder()
+            fluxrmax = (data['flux_r']+rvar)/data['mw_transmission_r'].byteswap().newbyteorder()
+            fluxrmin = (data['flux_r']-rvar)/data['mw_transmission_r'].byteswap().newbyteorder()
+            fluxz = data['flux_z']/data['mw_transmission_z'].byteswap().newbyteorder()
+            fluxzmax = (data['flux_z']+zvar)/data['mw_transmission_z'].byteswap().newbyteorder()
+            fluxzmin = (data['flux_z']-zvar)/data['mw_transmission_z'].byteswap().newbyteorder()
 
-            'g_e':add_quadrature(calc_magnitude_error(fluxg, fluxgmax, fluxgmin), uncertainty_floor),
-            'r_e':add_quadrature(calc_magnitude_error(fluxr, fluxrmax, fluxrmin), uncertainty_floor),
-            'z_e':add_quadrature(calc_magnitude_error(fluxz, fluxzmax, fluxzmin), uncertainty_floor)
-            })
+            #CREATE DATAFRAME
+            self.catalog = pd.DataFrame({'ra':data['ra'].byteswap().newbyteorder(), 
+                'dec':data['dec'].byteswap().newbyteorder(),
+                'g':flux_to_mag(fluxg),
+                'r':flux_to_mag(fluxr),
+                'z':flux_to_mag(fluxz),
+
+                'g_e':add_quadrature(calc_magnitude_error(fluxg, fluxgmax, fluxgmin), uncertainty_floor),
+                'r_e':add_quadrature(calc_magnitude_error(fluxr, fluxrmax, fluxrmin), uncertainty_floor),
+                'z_e':add_quadrature(calc_magnitude_error(fluxz, fluxzmax, fluxzmin), uncertainty_floor)
+                })
         
         #COMPUTE COLORS
         self.catalog['gr'] = self.catalog['g'] - self.catalog['r']
@@ -84,13 +118,15 @@ class Cluster:
         
         return len(self.catalog.index)
 
-    def identify_BCG(self, radius=None, ctol=None, iterate=True, use_given_coords=False):
+    def identify_BCG(self, radius=None, ztol=.2, ctol=None, iterate=True, use_redshift=False, use_given_coords=False):
         """Finds the BCG of the cluster
 
         Args:
             radius (float, optional): Search radius of cluster in kpc. Defaults to whatever was set in Cluster initialization (default 500).
+            ztol (float, optional, EXPERIMENTAL): Redshift separation tolerance for BCG finder (default 0.2).
             ctol (float, optional): Color separation tolerance for BCG finder. Defaults to whatever was set in Cluster initialization (default 0.2).
             iterate (bool, optional): Should the function iterate more than once? Defaults to True.
+            use_redshift (bool, optional): Should we use redshift (rather than color) to iterate over objects? Defaults to False.
             use_given_coords (bool, optional): Should the function just pick the object at the initial RA/DEC guess? Defaults to False.
 
         Returns:
@@ -139,30 +175,31 @@ class Cluster:
                 self.catalog['rz'][self.BCG_idx], False), dtype=float)[:,0]
             self.z_BCG = combine_redshifts(n[0], n[1])
             return self.BCG_idx
-
-        #CHECK ADDITIONAL CANDIDATES
-        zred = np.nanmean(np.array(self.Predictor.predict_from_values(self.catalog['r'][BCG_idx], self.catalog['z'][BCG_idx],
+        
+        #CHECK ADDITIONAL CANDIDATES USING REDSHIFT
+        if use_redshift:
+            self.calc_redshifts(full_cat=True)
+            zred = np.nanmean(np.array(self.Predictor.predict_from_values(self.catalog['r'][BCG_idx], self.catalog['z'][BCG_idx],
             self.catalog['gr'][BCG_idx], self.catalog['rz'][BCG_idx], False), dtype=float), axis=0)[0]
 
-        search_radius = radius * cosmo.arcsec_per_kpc_proper(zred).value / 3600
+            search_radius = radius * cosmo.arcsec_per_kpc_proper(zred).value / 3600
 
-        found = False
-        iterations = 0
+            found = False
+            iterations = 0
 
-        #iterate over all candidates
-        while found==False:
-            candidates = [catalog_distance(self.catalog['ra'][BCG_idx], 
-                self.catalog['dec'][BCG_idx], self.catalog) < search_radius]
-            if not np.array(candidates).any():
-                found = True
-                break
-            else:
-                candidate_idx = np.array(list(zip(*np.argwhere(candidates)))[1])
+            #iterate over all candidates
+            while found==False:
+                candidates = [catalog_distance(self.catalog['ra'][BCG_idx], 
+                    self.catalog['dec'][BCG_idx], self.catalog) < search_radius]
+                if not np.array(candidates).any():
+                    found = True
+                    break
+                else:
+                    candidate_idx = np.array(list(zip(*np.argwhere(candidates)))[1])
 
-            for i in sorted(list(zip(self.catalog['r'][candidate_idx], candidate_idx))):
-                #Check whether colors are within color tolerances
-                if np.abs(self.catalog['gr'][i[1]] - self.catalog['gr'][BCG_idx]) < ctol:
-                    if np.abs(self.catalog['rz'][i[1]] - self.catalog['rz'][BCG_idx]) < ctol:
+                for i in sorted(list(zip(self.catalog['r'][candidate_idx], candidate_idx))):
+                    #Check whether colors are within color tolerances
+                    if np.abs(self.catalog['redshift'][i[1]] - self.catalog['redshift'][BCG_idx]) < ztol:
                         BCG_idx = i[1]
                         iterations += 1
                         if iterate==False:
@@ -176,7 +213,45 @@ class Cluster:
                             found = True
 
                         break
-            found = True
+                found = True
+        else:
+            #CHECK ADDITIONAL CANDIDATES
+            zred = np.nanmean(np.array(self.Predictor.predict_from_values(self.catalog['r'][BCG_idx], self.catalog['z'][BCG_idx],
+                self.catalog['gr'][BCG_idx], self.catalog['rz'][BCG_idx], False), dtype=float), axis=0)[0]
+
+            search_radius = radius * cosmo.arcsec_per_kpc_proper(zred).value / 3600
+
+            found = False
+            iterations = 0
+
+            #iterate over all candidates
+            while found==False:
+                candidates = [catalog_distance(self.catalog['ra'][BCG_idx], 
+                    self.catalog['dec'][BCG_idx], self.catalog) < search_radius]
+                if not np.array(candidates).any():
+                    found = True
+                    break
+                else:
+                    candidate_idx = np.array(list(zip(*np.argwhere(candidates)))[1])
+
+                for i in sorted(list(zip(self.catalog['r'][candidate_idx], candidate_idx))):
+                    #Check whether colors are within color tolerances
+                    if np.abs(self.catalog['gr'][i[1]] - self.catalog['gr'][BCG_idx]) < ctol:
+                        if np.abs(self.catalog['rz'][i[1]] - self.catalog['rz'][BCG_idx]) < ctol:
+                            BCG_idx = i[1]
+                            iterations += 1
+                            if iterate==False:
+                                found = True
+                            if BCG_idx == self.BCG_idx:
+                                found = True
+                            self.BCG_idx = BCG_idx
+
+                            #interation limit of 100
+                            if iterations >= 100:
+                                found = True
+
+                            break
+                found = True
         
         self.BCG_idx = BCG_idx
 
@@ -526,7 +601,9 @@ class Cluster:
             return cluster_dist[0]
 
 
-    def calc_richness(self, bins=50, range=[0,1.5], radius=None, debug=False, comparison_redshift=None, comparison_tolerance=0.05, use_uncertainty=False, sigma=3):
+    def calc_richness(self, bins=50, range=[0,1.5], radius=None, debug=False, 
+                      comparison_redshift=None, comparison_tolerance=0.05, use_uncertainty=False, sigma=3, combine=True, 
+                      second_brightest=False, return_members=False):
         """Calculate richness of the cluster
 
         Args:
@@ -539,13 +616,20 @@ class Cluster:
             comparison_tolerance (float, optional): Redshift tolerance if using a comparison redshift. Defaults to 0.05.
             use_uncertainty (bool, optional): Whether or not to use uncertainties. Defaults to False.
             sigma (int, optional): Sigma, if using uncertainties. Defaults to 3.
+            combine (bool, optional): Should we automatically combine gr/rz redshifts? (This should basically always be true 
+                                      unless you're debugging something). Defaults to True.
+            second_brightest (bool, optional): Should we also compute statistics for second-brightest cluster galaxy?
+                                               Defaults to False.
+            return_members (bool, optional): Should the function return a list of cluster members? If True, the output is a
+                                             Numpy array of the 'ls_id' values for every cluster member.
 
         Returns:
-            tuple: None if debug=False; various values if debug=True
+            tuple: None if debug=False; various values if debug=True or return_members=True.
         """        
         
         #CALCULATE REDSHIFT AND UPDATE z_BCG
-        self.catalog['redshift'] = combine_redshifts(self.catalog)
+        if combine:
+            self.catalog['redshift'] = combine_redshifts(self.catalog)
         self.z_BCG = self.catalog['redshift'][self.BCG_idx]
 
         if radius==None: 
@@ -560,8 +644,9 @@ class Cluster:
                     self.catalog['dec'][self.BCG_idx], self.catalog) < search_radius
 
                 #COMPUTE UNCERTAINTY REDSHIFTS
-                self.catalog['redshift+'] = combine_redshifts(self.catalog['gr_redshift+'], self.catalog['rz_redshift+'])
-                self.catalog['redshift-'] = combine_redshifts(self.catalog['gr_redshift-'], self.catalog['rz_redshift-'])
+                if combine:
+                    self.catalog['redshift+'] = combine_redshifts(self.catalog['gr_redshift+'], self.catalog['rz_redshift+'])
+                    self.catalog['redshift-'] = combine_redshifts(self.catalog['gr_redshift-'], self.catalog['rz_redshift-'])
 
                 maxvals = np.nanmax([self.catalog['redshift'], self.catalog['redshift+'], self.catalog['redshift-']], axis=0)
                 minvals = np.nanmin([self.catalog['redshift'], self.catalog['redshift+'], self.catalog['redshift-']], axis=0)
@@ -581,6 +666,15 @@ class Cluster:
                 self.mean_z = np.mean(cluster_members)
                 self.std_z = np.std(cluster_members)
                 self.richness = len(cluster_members)
+                
+                if second_brightest:
+                    self.B2G_r = np.partition(self.catalog['r'][np.logical_and(np.logical_and(maxmask, minmask), candidates)], 1)[1]
+                    if self.catalog['r'][self.BCG_idx] == self.B2G_r:
+                        self.B2G_r = np.max(self.catalog['r'][np.logical_and(np.logical_and(maxmask, minmask), candidates)])
+                    self.B2G_idx = np.where(self.catalog['r'] == self.B2G_r)[0][0]
+                    
+                if return_members:
+                    return np.array(self.catalog['ls_id'][np.logical_and(np.logical_and(maxmask, minmask), candidates)])
                 
                 if debug:
                     self.mean_z = np.mean(cluster_members)
@@ -602,8 +696,9 @@ class Cluster:
                     self.catalog['dec'][self.BCG_idx], self.catalog) < search_radius
 
                 #COMPUTE UNCERTAINTY REDSHIFTS
-                self.catalog['redshift+'] = combine_redshifts(self.catalog['gr_redshift+'], self.catalog['rz_redshift+'])
-                self.catalog['redshift-'] = combine_redshifts(self.catalog['gr_redshift-'], self.catalog['rz_redshift-'])
+                if combine:
+                    self.catalog['redshift+'] = combine_redshifts(self.catalog['gr_redshift+'], self.catalog['rz_redshift+'])
+                    self.catalog['redshift-'] = combine_redshifts(self.catalog['gr_redshift-'], self.catalog['rz_redshift-'])
 
                 maxvals = np.nanmax([self.catalog['redshift'], self.catalog['redshift+'], self.catalog['redshift-']], axis=0)
                 minvals = np.nanmin([self.catalog['redshift'], self.catalog['redshift+'], self.catalog['redshift-']], axis=0)
@@ -623,6 +718,9 @@ class Cluster:
                 self.mean_z = np.mean(cluster_members)
                 self.std_z = np.std(cluster_members)
                 self.richness = len(cluster_members)
+                
+                if return_members:
+                    return np.array(self.catalog['ls_id'][np.logical_and(np.logical_and(maxmask, minmask), candidates)])
 
                 if debug:
                     self.mean_z = np.mean(cluster_members)
@@ -650,6 +748,9 @@ class Cluster:
             self.mean_z = np.mean(cluster_members)
             self.std_z = np.std(cluster_members)
             self.richness = len(cluster_members)
+            
+            if return_members:
+                return np.array(self.catalog['ls_id'][np.logical_and(np.logical_and(maxmask, minmask), candidates)])
 
             if debug:
                 self.mean_z = np.mean(cluster_members)
@@ -709,6 +810,43 @@ class Cluster:
 
         if debug:
             return cluster_dist, normal_dist, min_z, max_z
+        
+    def gr_richness_func(self, data, a, b, c, d, e):
+        return a + (b*data) + (c*(data**2)) + (d*(data**3)) + (e*(data**4)) 
+        
+    def adjust_redshifts(self):
+        """Fixes redshifts after a first generation of richness, according to some gr and rz functions.
+        """
+        gr_rich_param = [ 4.43780106e-02, -2.81869714e-03,  6.64280527e-05, -6.32394349e-07, 2.07133238e-09]
+        gr_red_param = [0.03554779413300713, -0.00946683261557076]
+        rz_param = [-0.013512478100340883, -0.003808297907376761]
+        all_param = [0.018177358729399226, -0.005196082305140413]
+        
+        
+        gr_offset_1 = self.gr_richness_func(self.catalog['gr_redshift'], *gr_rich_param)
+        gr_offset_2 = (gr_red_param[0] * gr_offset_1) + gr_red_param[1]
+        rz_offset = (rz_param[0] * self.catalog['rz_redshift']) + rz_param[1]
+        self.catalog['gr_redshift'] = self.catalog['gr_redshift'] - gr_offset_2
+        self.catalog['rz_redshift'] = self.catalog['rz_redshift'] + rz_offset
+        combined = combine_redshifts(self.catalog['gr_redshift'], self.catalog['rz_redshift'])
+        self.catalog['redshift'] = (all_param[0] * combined) + all_param[1] + combined
+        
+        gr_offset_1 = self.gr_richness_func(self.catalog['gr_redshift+'], *gr_rich_param)
+        gr_offset_2 = (gr_red_param[0] * gr_offset_1) + gr_red_param[1]
+        rz_offset = (rz_param[0] * self.catalog['rz_redshift+']) + rz_param[1]
+        self.catalog['gr_redshift+'] = self.catalog['gr_redshift+'] - gr_offset_2
+        self.catalog['rz_redshift+'] = self.catalog['rz_redshift+'] + rz_offset
+        combined = combine_redshifts(self.catalog['gr_redshift+'], self.catalog['rz_redshift+'])
+        self.catalog['redshift+'] = (all_param[0] * combined) + all_param[1] + combined
+        
+        gr_offset_1 = self.gr_richness_func(self.catalog['gr_redshift-'], *gr_rich_param)
+        gr_offset_2 = (gr_red_param[0] * gr_offset_1) + gr_red_param[1]
+        rz_offset = (rz_param[0] * self.catalog['rz_redshift-']) + rz_param[1]
+        self.catalog['gr_redshift-'] = self.catalog['gr_redshift-'] - gr_offset_2
+        self.catalog['rz_redshift-'] = self.catalog['rz_redshift-'] + rz_offset
+        combined = combine_redshifts(self.catalog['gr_redshift-'], self.catalog['rz_redshift-'])
+        self.catalog['redshift-'] = (all_param[0] * combined) + all_param[1] + combined
+        
 
 
     def return_statistics(self):
